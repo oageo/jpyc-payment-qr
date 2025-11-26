@@ -1,0 +1,69 @@
+{
+  "name": "jpyc-payment-qr",
+  "version": "1.0.0",
+  "description": "QR code generator for JPYC (Japanese Yen Coin) payments with EIP-681 support",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "format": "biome format --write src/",
+    "format:check": "biome format src/",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run build"
+  },
+  "keywords": [
+    "jpyc",
+    "qr",
+    "payment",
+    "stablecoin",
+    "eip-681",
+    "ethereum",
+    "polygon",
+    "blockchain"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/jpyc-payment-qr.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/jpyc-payment-qr/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.3",
+    "@noble/hashes": "^1.5.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^20.0.0",
+    "@types/qrcode": "^1.5.5",
+    "@vitest/coverage-v8": "^2.1.0",
+    "@vitest/ui": "^2.1.0",
+    "typescript": "^5.6.0",
+    "tsup": "^8.3.0",
+    "vitest": "^2.1.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}
