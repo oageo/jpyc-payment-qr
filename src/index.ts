@@ -47,3 +47,11 @@ export type { DecodedEIP681 } from './encoder.js';
 
 // URI生成関数のエクスポート
 export { generatePaymentURI } from './uri-generator.js';
+
+// QRコード生成関数のエクスポート
+export {
+    generatePaymentQR,
+    generatePaymentQRWithFormat,
+    generatePaymentQRBuffer,
+    generateQRFromURI,
+} from './qr-generator.js';
