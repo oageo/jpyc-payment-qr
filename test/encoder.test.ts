@@ -45,6 +45,16 @@ describe('Encoder', () => {
             expect(() => jpyToWei(1, 19)).toThrow(JPYCPaymentError);
             expect(() => jpyToWei(1, 1.5)).toThrow(JPYCPaymentError);
         });
+
+        it('小数点のみの入力を正しく処理する（.5 → 0.5）', () => {
+            expect(jpyToWei('.5')).toBe('500000000000000000');
+            expect(jpyToWei('.123')).toBe('123000000000000000');
+        });
+
+        it('複数の小数点を含む入力でエラーを投げる', () => {
+            expect(() => jpyToWei('1.2.3')).toThrow(JPYCPaymentError);
+            expect(() => jpyToWei('1..5')).toThrow(JPYCPaymentError);
+        });
     });
 
     describe('weiToJpy', () => {
@@ -127,6 +137,20 @@ describe('Encoder', () => {
 
         it('無効なURIでエラーを投げる', () => {
             expect(() => decodeEIP681('invalid-uri')).toThrow(JPYCPaymentError);
+        });
+
+        it('クエリパラメータがないURIでエラーを投げる', () => {
+            expect(() =>
+                decodeEIP681('ethereum:0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29@137/transfer')
+            ).toThrow(JPYCPaymentError);
+        });
+
+        it('必須パラメータが欠けているURIでエラーを投げる', () => {
+            expect(() =>
+                decodeEIP681(
+                    'ethereum:0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29@137/transfer?address=0x1234567890123456789012345678901234567890'
+                )
+            ).toThrow(JPYCPaymentError);
         });
     });
 });

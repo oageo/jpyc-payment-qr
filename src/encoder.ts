@@ -42,8 +42,20 @@ export function jpyToWei(amount: number | string, decimals: number = JPYC_DECIMA
         });
     }
 
+    // 小数点が複数含まれていないかチェック
+    const decimalCount = (amountStr.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+        throw new JPYCPaymentError(
+            `金額に小数点が複数含まれています: ${amountStr}`,
+            'INVALID_AMOUNT',
+            { amount: amountStr }
+        );
+    }
+
     // 小数点で分割
-    const [intPart, decPart = ''] = amountStr.split('.');
+    const parts = amountStr.split('.');
+    const intPart = parts[0] || '0'; // 空文字列の場合は "0" にする（例：".5" → "0.5"）
+    const decPart = parts[1] || '';
 
     // decimals桁に0埋め・切り詰め
     const paddedDec = decPart.padEnd(decimals, '0').slice(0, decimals);
@@ -161,7 +173,12 @@ export function decodeEIP681(uri: string): DecodedEIP681 {
         }
         const functionName = functionMatch[1];
 
-        const params = new URLSearchParams(uri.split('?')[1]);
+        const queryString = uri.split('?')[1];
+        if (!queryString) {
+            throw new Error('クエリパラメータが見つかりません');
+        }
+
+        const params = new URLSearchParams(queryString);
         const recipientAddress = params.get('address');
         const amount = params.get('uint256');
 
