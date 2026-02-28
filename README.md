@@ -1,6 +1,12 @@
 # jpyc-payment-qr
+![NPM Version](https://img.shields.io/npm/v/jpyc-payment-qr)
+![NPM Downloads](https://img.shields.io/npm/dy/jpyc-payment-qr)
+![GitHub License](https://img.shields.io/github/license/oageo/jpyc-payment-qr)
 
 EIP-681に基づいたJPYC（Japanese Yen Coin）の支払い用URI及びQRコードを生成するTypeScriptライブラリ
+
+> [!TIP]
+> [JPYC支払いQRコード（EIP-681）生成ツール](https://jpyc-qr.osumiakari.jp)で、大まかな動作を確認することが可能となっています。合わせてご活用ください。
 
 ## インストール
 
@@ -444,3 +450,11 @@ MIT License
 * [JPYC公式サイト](https://jpyc.co.jp/)
 
 
+## 作者
+oageo（Osumi Akari）
+
+* Website: https://www.osumiakari.jp/about/
+    * Gift: https://www.osumiakari.jp/gift/
+    * ETH(POL): 0x32C769A4788aF9F592f45B25B28Cb7E1df0AbF6D
+* Fediverse: [@oageo@c.osumiakari.jp](https://c.osumiakari.jp/@oageo)
+* Bluesky: [@osumiakari.jp](https://bsky.app/profile/osumiakari.jp)
