@@ -65,5 +65,8 @@
     "dist",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
 }
