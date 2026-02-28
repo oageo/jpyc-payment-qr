@@ -1,0 +1,64 @@
+name: Publish to npm
+
+on:
+    release:
+        types: [published]
+
+concurrency:
+    group: publish
+    cancel-in-progress: false # 進行中の publish はキャンセルしない
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        environment: npm # 承認者による手動承認が必要
+
+        permissions:
+            contents: read
+            id-token: write # npm provenance に必要
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 9
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20.x'
+                  cache: 'pnpm'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Type check
+              run: pnpm run typecheck
+
+            - name: Lint
+              run: pnpm run lint
+
+            - name: Test
+              run: pnpm run test
+
+            - name: Build
+              run: pnpm run build
+
+            - name: Verify version matches release tag
+              run: |
+                  PACKAGE_VERSION=$(node -p "require('./package.json').version")
+                  TAG_VERSION=${GITHUB_REF_NAME#v}
+                  if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+                      echo "::error::package.json のバージョン ($PACKAGE_VERSION) とタグ ($TAG_VERSION) が一致しません"
+                      exit 1
+                  fi
+                  echo "バージョン確認OK: $PACKAGE_VERSION"
+
+            - name: Publish to npm
+              run: pnpm publish --no-git-checks --provenance --ignore-scripts
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

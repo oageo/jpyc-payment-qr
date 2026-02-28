@@ -57,13 +57,25 @@ export function jpyToWei(amount: number | string, decimals: number = JPYC_DECIMA
     const intPart = parts[0] || '0'; // 空文字列の場合は "0" にする（例：".5" → "0.5"）
     const decPart = parts[1] || '';
 
+    // 整数部が数字のみで構成されているか確認（科学的記数法などを排除）
+    if (!/^\d+$/.test(intPart)) {
+        throw new JPYCPaymentError(`無効な金額形式です: ${amountStr}`, 'INVALID_AMOUNT', {
+            amount: amountStr,
+        });
+    }
+
     // decimals桁に0埋め・切り詰め
     const paddedDec = decPart.padEnd(decimals, '0').slice(0, decimals);
 
     // BigIntで計算（オーバーフローを防ぐ）
-    const weiAmount = BigInt(intPart + paddedDec);
-
-    return weiAmount.toString();
+    try {
+        const weiAmount = BigInt(intPart + paddedDec);
+        return weiAmount.toString();
+    } catch {
+        throw new JPYCPaymentError(`無効な金額形式です: ${amountStr}`, 'INVALID_AMOUNT', {
+            amount: amountStr,
+        });
+    }
 }
 
 /**
@@ -81,7 +93,14 @@ export function weiToJpy(weiAmount: string, decimals: number = JPYC_DECIMALS): s
         );
     }
 
-    const wei = BigInt(weiAmount);
+    let wei: bigint;
+    try {
+        wei = BigInt(weiAmount);
+    } catch {
+        throw new JPYCPaymentError(`無効なWei金額形式です: ${weiAmount}`, 'INVALID_AMOUNT', {
+            weiAmount,
+        });
+    }
     const divisor = BigInt(10) ** BigInt(decimals);
 
     const intPart = wei / divisor;

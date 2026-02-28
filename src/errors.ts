@@ -43,7 +43,6 @@ export class JPYCPaymentError extends Error {
             message: this.message,
             code: this.code,
             details: this.details,
-            stack: this.stack,
         };
     }
 }
