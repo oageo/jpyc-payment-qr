@@ -152,3 +152,6 @@ pnpm-debug.log*
 
 # Claude
 .claude
+
+## npmrc
+.npmrc
