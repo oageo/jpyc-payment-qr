@@ -86,7 +86,7 @@ if (result.warnings.length > 0) {
     result.warnings.forEach((warning) => {
         console.log(`警告 [${warning.code}]: ${warning.message}`);
     });
-    // => 警告 [LARGE_AMOUNT]: 金額が100万JPYを超えています: 10000000。意図した金額か確認してください
+    // => 警告 [LARGE_AMOUNT]: 金額が100万JPYCを超えています: 10000000。意図した金額か確認してください
 }
 ```
 

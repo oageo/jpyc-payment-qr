@@ -33,7 +33,7 @@ describe('Validator', () => {
 
             const result = validateGenerateOptions(options);
             expect(result.valid).toBe(false);
-            expect(result.errors.some((e) => e.includes('無効な加盟店アドレス形式'))).toBe(true);
+            expect(result.errors.some((e) => e.includes('無効なアドレス形式'))).toBe(true);
         });
 
         it('amountが必須である', () => {

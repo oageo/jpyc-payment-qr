@@ -16,7 +16,7 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
         errors.push('merchantAddressは必須です');
     } else if (!isValidAddressFormat(options.merchantAddress)) {
         errors.push(
-            `無効な加盟店アドレス形式です: ${options.merchantAddress}。0xで始まる42文字の16進数である必要があります`
+            `無効なアドレス形式です: ${options.merchantAddress}。0xで始まる42文字の16進数である必要があります`
         );
     }
 
@@ -41,7 +41,7 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
         if (amountNum < 1 && amountNum > 0) {
             warnings.push({
                 code: 'SMALL_AMOUNT',
-                message: `金額が1 JPY未満です: ${amountNum}。意図した金額か確認してください`,
+                message: `金額が1JPYC未満です: ${amountNum}。意図した金額か確認してください`,
             });
         }
 
@@ -49,7 +49,7 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
         if (amountNum > 1000000) {
             warnings.push({
                 code: 'LARGE_AMOUNT',
-                message: `金額が100万JPYを超えています: ${amountNum}。意図した金額か確認してください`,
+                message: `金額が100万JPYCを超えています: ${amountNum}。意図した金額か確認してください`,
             });
         }
     }
