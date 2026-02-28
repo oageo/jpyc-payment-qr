@@ -35,35 +35,38 @@
     "polygon",
     "blockchain"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Osumi Akari",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/jpyc-payment-qr.git"
+    "url": "https://github.com/oageo/jpyc-payment-qr.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/jpyc-payment-qr/issues"
+    "url": "https://github.com/oageo/jpyc-payment-qr/issues"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "qrcode": "^1.5.3",
-    "@noble/hashes": "^1.5.0"
+    "@noble/hashes": "^1.8.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/node": "^20.0.0",
-    "@types/qrcode": "^1.5.5",
-    "@vitest/coverage-v8": "^2.1.0",
-    "@vitest/ui": "^2.1.0",
-    "typescript": "^5.6.0",
-    "tsup": "^8.3.0",
-    "vitest": "^2.1.0"
+    "@types/node": "^20.19.35",
+    "@types/qrcode": "^1.5.6",
+    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/ui": "^2.1.9",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
   },
   "files": [
     "dist",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
 }

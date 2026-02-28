@@ -42,16 +42,40 @@ export function jpyToWei(amount: number | string, decimals: number = JPYC_DECIMA
         });
     }
 
+    // 小数点が複数含まれていないかチェック
+    const decimalCount = (amountStr.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+        throw new JPYCPaymentError(
+            `金額に小数点が複数含まれています: ${amountStr}`,
+            'INVALID_AMOUNT',
+            { amount: amountStr }
+        );
+    }
+
     // 小数点で分割
-    const [intPart, decPart = ''] = amountStr.split('.');
+    const parts = amountStr.split('.');
+    const intPart = parts[0] || '0'; // 空文字列の場合は "0" にする（例：".5" → "0.5"）
+    const decPart = parts[1] || '';
+
+    // 整数部が数字のみで構成されているか確認（科学的記数法などを排除）
+    if (!/^\d+$/.test(intPart)) {
+        throw new JPYCPaymentError(`無効な金額形式です: ${amountStr}`, 'INVALID_AMOUNT', {
+            amount: amountStr,
+        });
+    }
 
     // decimals桁に0埋め・切り詰め
     const paddedDec = decPart.padEnd(decimals, '0').slice(0, decimals);
 
     // BigIntで計算（オーバーフローを防ぐ）
-    const weiAmount = BigInt(intPart + paddedDec);
-
-    return weiAmount.toString();
+    try {
+        const weiAmount = BigInt(intPart + paddedDec);
+        return weiAmount.toString();
+    } catch {
+        throw new JPYCPaymentError(`無効な金額形式です: ${amountStr}`, 'INVALID_AMOUNT', {
+            amount: amountStr,
+        });
+    }
 }
 
 /**
@@ -69,7 +93,14 @@ export function weiToJpy(weiAmount: string, decimals: number = JPYC_DECIMALS): s
         );
     }
 
-    const wei = BigInt(weiAmount);
+    let wei: bigint;
+    try {
+        wei = BigInt(weiAmount);
+    } catch {
+        throw new JPYCPaymentError(`無効なWei金額形式です: ${weiAmount}`, 'INVALID_AMOUNT', {
+            weiAmount,
+        });
+    }
     const divisor = BigInt(10) ** BigInt(decimals);
 
     const intPart = wei / divisor;
@@ -161,7 +192,12 @@ export function decodeEIP681(uri: string): DecodedEIP681 {
         }
         const functionName = functionMatch[1];
 
-        const params = new URLSearchParams(uri.split('?')[1]);
+        const queryString = uri.split('?')[1];
+        if (!queryString) {
+            throw new Error('クエリパラメータが見つかりません');
+        }
+
+        const params = new URLSearchParams(queryString);
         const recipientAddress = params.get('address');
         const amount = params.get('uint256');
 

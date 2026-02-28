@@ -433,16 +433,6 @@ pnpm run format
 pnpm run typecheck
 ```
 
-## 技術スタック
-
-- **TypeScript 5.x** - 型安全な開発
-- **Vitest** - 高速なテストランナー
-- **Biome** - 高速なリンター・フォーマッター
-- **tsup** - シンプルなバンドラー
-- **@noble/hashes** - セキュアなハッシュ関数
-- **qrcode** - QRコード生成ライブラリ
-- **Pure ESM** - モダンなモジュール形式
-
 ## ライセンス
 
 MIT License
