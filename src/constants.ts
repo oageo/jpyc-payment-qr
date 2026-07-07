@@ -51,6 +51,12 @@ export const TRANSFER_FUNCTION = 'transfer';
 export const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 
 /**
+ * 金額文字列の検証用正規表現（非負の10進数。例: "100", "0.5", ".5", "5."）
+ * 科学的記数法や数字以外の文字を含む形式は不可
+ */
+export const AMOUNT_FORMAT_REGEX = /^(\d+(\.\d*)?|\.\d+)$/;
+
+/**
  * 安全な最大金額（JPY単位、オーバーフロー防止）
  * BigIntを使用しているため、実質的に制限はないが、数値の妥当性チェック用
  */

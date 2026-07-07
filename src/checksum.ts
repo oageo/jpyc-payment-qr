@@ -1,14 +1,7 @@
 import { keccak_256 } from '@noble/hashes/sha3';
+import { bytesToHex } from '@noble/hashes/utils';
+import { ADDRESS_REGEX } from './constants.js';
 import { JPYCPaymentError } from './errors.js';
-
-/**
- * バイト配列を16進数文字列に変換
- */
-function bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes)
-        .map((byte) => byte.toString(16).padStart(2, '0'))
-        .join('');
-}
 
 /**
  * EIP-55チェックサムアドレスを生成
@@ -34,7 +27,7 @@ export function toChecksumAddress(address: string): string {
     }
 
     // 16進数の検証
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    if (!ADDRESS_REGEX.test(address)) {
         throw new JPYCPaymentError(
             'アドレスは16進数文字のみを含む必要があります',
             'INVALID_ADDRESS',
@@ -46,21 +39,13 @@ export function toChecksumAddress(address: string): string {
     const lowerCaseAddress = address.slice(2).toLowerCase();
 
     // Keccak-256ハッシュを計算
-    const hash = keccak_256(lowerCaseAddress);
-    const hashHex = bytesToHex(hash);
+    const hashHex = bytesToHex(keccak_256(lowerCaseAddress));
 
-    // チェックサムアドレスを生成
+    // ハッシュ値が8以上（16進数でa-f）なら大文字、そうでなければ小文字
     let checksumAddress = '0x';
     for (let i = 0; i < lowerCaseAddress.length; i++) {
-        const char = lowerCaseAddress[i];
-        if (char === undefined) continue;
-
-        // ハッシュの対応する16進数文字を取得
-        const hashChar = hashHex[i];
-        if (hashChar === undefined) continue;
-
-        // ハッシュ値が8以上（16進数でa-f）なら大文字、そうでなければ小文字
-        const hashValue = Number.parseInt(hashChar, 16);
+        const char = lowerCaseAddress.charAt(i);
+        const hashValue = Number.parseInt(hashHex.charAt(i), 16);
         checksumAddress += hashValue >= 8 ? char.toUpperCase() : char;
     }
 
@@ -74,8 +59,7 @@ export function toChecksumAddress(address: string): string {
  */
 export function isValidChecksumAddress(address: string): boolean {
     try {
-        const checksummed = toChecksumAddress(address);
-        return address === checksummed;
+        return address === toChecksumAddress(address);
     } catch {
         return false;
     }
@@ -87,5 +71,5 @@ export function isValidChecksumAddress(address: string): boolean {
  * @returns アドレス形式が有効かどうか
  */
 export function isValidAddressFormat(address: string): boolean {
-    return /^0x[a-fA-F0-9]{40}$/.test(address);
+    return ADDRESS_REGEX.test(address);
 }

@@ -38,6 +38,8 @@ describe('Encoder', () => {
 
         it('無効な文字列でエラーを投げる', () => {
             expect(() => jpyToWei('abc')).toThrow(JPYCPaymentError);
+            expect(() => jpyToWei('100abc')).toThrow(JPYCPaymentError);
+            expect(() => jpyToWei('1e5')).toThrow(JPYCPaymentError);
         });
 
         it('無効なdecimalsでエラーを投げる', () => {

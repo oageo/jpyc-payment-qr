@@ -25,13 +25,7 @@ export class JPYCPaymentError extends Error {
         this.details = details;
 
         // エラーが投げられた場所のスタックトレースを維持（V8でのみ利用可能）
-        if ('captureStackTrace' in Error) {
-            (
-                Error as {
-                    captureStackTrace?: (target: object, ctor: typeof JPYCPaymentError) => void;
-                }
-            ).captureStackTrace?.(this, JPYCPaymentError);
-        }
+        Error.captureStackTrace?.(this, JPYCPaymentError);
     }
 
     /**
