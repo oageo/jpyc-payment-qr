@@ -21,16 +21,9 @@ export function generatePaymentURI(options: PaymentURIOptions): PaymentURIResult
         );
     }
 
-    // デフォルト値の設定
+    // デフォルト値の設定（無効なネットワークは上のバリデーションで弾かれている）
     const network = options.network ?? DEFAULT_NETWORK;
     const chainConfig = CHAIN_CONFIGS[network];
-    if (!chainConfig) {
-        throw new JPYCPaymentError(
-            `サポートされていないネットワークです: ${network}`,
-            'INVALID_NETWORK'
-        );
-    }
-
     const jpycAddress = options.jpycContractAddress ?? chainConfig.jpycAddress;
     const decimals = options.decimals ?? JPYC_DECIMALS;
 

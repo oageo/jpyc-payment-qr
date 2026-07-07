@@ -17,6 +17,63 @@ const DEFAULT_QR_OPTIONS = {
 };
 
 /**
+ * QRコードオプションをデフォルト値とマージ
+ */
+function mergeQROptions(qrOptions?: QRCodeOptions) {
+    return {
+        errorCorrectionLevel:
+            qrOptions?.errorCorrectionLevel ?? DEFAULT_QR_OPTIONS.errorCorrectionLevel,
+        width: qrOptions?.width ?? DEFAULT_QR_OPTIONS.width,
+        margin: qrOptions?.margin ?? DEFAULT_QR_OPTIONS.margin,
+        color: {
+            dark: qrOptions?.color?.dark ?? DEFAULT_QR_OPTIONS.color.dark,
+            light: qrOptions?.color?.light ?? DEFAULT_QR_OPTIONS.color.light,
+        },
+    };
+}
+
+/**
+ * URIから指定フォーマットのQRコードデータを生成
+ * @throws {JPYCPaymentError} サポートされていないフォーマットの場合
+ */
+async function renderQRData(
+    uri: string,
+    format: QROutputFormat,
+    qrOptions?: QRCodeOptions
+): Promise<string> {
+    const mergedOptions = mergeQROptions(qrOptions);
+
+    switch (format) {
+        case 'png':
+            // PNG Data URL形式
+            return QRCode.toDataURL(uri, mergedOptions);
+
+        case 'svg':
+        case 'utf8':
+        case 'terminal':
+            // 文字列形式（SVG、ASCII art、ターミナル表示用）
+            return QRCode.toString(uri, { ...mergedOptions, type: format });
+
+        default:
+            throw new JPYCPaymentError(
+                `サポートされていない出力フォーマットです: ${format}`,
+                'QR_GENERATION_FAILED',
+                { format }
+            );
+    }
+}
+
+/**
+ * QR生成中のエラーをJPYCPaymentErrorに変換
+ */
+function toQRGenerationError(error: unknown, message: string): JPYCPaymentError {
+    if (error instanceof JPYCPaymentError) {
+        return error;
+    }
+    return new JPYCPaymentError(message, 'QR_GENERATION_FAILED', { error });
+}
+
+/**
  * JPYC支払い用のQRコードを生成（PNG Data URL形式）
  * @param options - 支払いURIオプション
  * @param qrOptions - QRコード生成オプション
@@ -42,78 +99,12 @@ export async function generatePaymentQRWithFormat(
     qrOptions?: QRCodeOptions
 ): Promise<QRCodeResult> {
     try {
-        // URIを生成
-        const uriResult = generatePaymentURI(options);
+        const { uri } = generatePaymentURI(options);
+        const data = await renderQRData(uri, format, qrOptions);
 
-        // QRコードオプションをマージ
-        const mergedOptions = {
-            errorCorrectionLevel:
-                qrOptions?.errorCorrectionLevel ?? DEFAULT_QR_OPTIONS.errorCorrectionLevel,
-            width: qrOptions?.width ?? DEFAULT_QR_OPTIONS.width,
-            margin: qrOptions?.margin ?? DEFAULT_QR_OPTIONS.margin,
-            color: {
-                dark: qrOptions?.color?.dark ?? DEFAULT_QR_OPTIONS.color.dark,
-                light: qrOptions?.color?.light ?? DEFAULT_QR_OPTIONS.color.light,
-            },
-        };
-
-        let data: string;
-
-        switch (format) {
-            case 'png': {
-                // PNG Data URL形式
-                data = await QRCode.toDataURL(uriResult.uri, mergedOptions);
-                break;
-            }
-
-            case 'svg': {
-                // SVG文字列形式
-                data = await QRCode.toString(uriResult.uri, {
-                    ...mergedOptions,
-                    type: 'svg',
-                });
-                break;
-            }
-
-            case 'utf8': {
-                // UTF-8テキスト形式（ASCII art）
-                data = await QRCode.toString(uriResult.uri, {
-                    ...mergedOptions,
-                    type: 'utf8',
-                });
-                break;
-            }
-
-            case 'terminal': {
-                // ターミナル表示用
-                data = await QRCode.toString(uriResult.uri, {
-                    ...mergedOptions,
-                    type: 'terminal',
-                });
-                break;
-            }
-
-            default: {
-                throw new JPYCPaymentError(
-                    `サポートされていない出力フォーマットです: ${format}`,
-                    'QR_GENERATION_FAILED',
-                    { format }
-                );
-            }
-        }
-
-        return {
-            data,
-            format,
-            uri: uriResult.uri,
-        };
+        return { data, format, uri };
     } catch (error) {
-        if (error instanceof JPYCPaymentError) {
-            throw error;
-        }
-        throw new JPYCPaymentError('QRコードの生成に失敗しました', 'QR_GENERATION_FAILED', {
-            error,
-        });
+        throw toQRGenerationError(error, 'QRコードの生成に失敗しました');
     }
 }
 
@@ -128,38 +119,17 @@ export async function generatePaymentQRBuffer(
     qrOptions?: QRCodeOptions
 ): Promise<Uint8Array> {
     try {
-        // URIを生成
-        const uriResult = generatePaymentURI(options);
+        const { uri } = generatePaymentURI(options);
 
-        // QRコードオプションをマージ
-        const mergedOptions = {
-            errorCorrectionLevel:
-                qrOptions?.errorCorrectionLevel ?? DEFAULT_QR_OPTIONS.errorCorrectionLevel,
-            width: qrOptions?.width ?? DEFAULT_QR_OPTIONS.width,
-            margin: qrOptions?.margin ?? DEFAULT_QR_OPTIONS.margin,
-            color: {
-                dark: qrOptions?.color?.dark ?? DEFAULT_QR_OPTIONS.color.dark,
-                light: qrOptions?.color?.light ?? DEFAULT_QR_OPTIONS.color.light,
-            },
-        };
-
-        // Buffer形式で生成
-        const buffer = await QRCode.toBuffer(uriResult.uri, {
-            ...mergedOptions,
+        // Buffer形式で生成し、Uint8Arrayに変換
+        const buffer = await QRCode.toBuffer(uri, {
+            ...mergeQROptions(qrOptions),
             type: 'png',
         });
 
-        // BufferをUint8Arrayに変換
         return new Uint8Array(buffer);
     } catch (error) {
-        if (error instanceof JPYCPaymentError) {
-            throw error;
-        }
-        throw new JPYCPaymentError(
-            'QRコード（バッファ形式）の生成に失敗しました',
-            'QR_GENERATION_FAILED',
-            { error }
-        );
+        throw toQRGenerationError(error, 'QRコード（バッファ形式）の生成に失敗しました');
     }
 }
 
@@ -176,70 +146,10 @@ export async function generateQRFromURI(
     qrOptions?: QRCodeOptions
 ): Promise<QRCodeResult> {
     try {
-        // QRコードオプションをマージ
-        const mergedOptions = {
-            errorCorrectionLevel:
-                qrOptions?.errorCorrectionLevel ?? DEFAULT_QR_OPTIONS.errorCorrectionLevel,
-            width: qrOptions?.width ?? DEFAULT_QR_OPTIONS.width,
-            margin: qrOptions?.margin ?? DEFAULT_QR_OPTIONS.margin,
-            color: {
-                dark: qrOptions?.color?.dark ?? DEFAULT_QR_OPTIONS.color.dark,
-                light: qrOptions?.color?.light ?? DEFAULT_QR_OPTIONS.color.light,
-            },
-        };
+        const data = await renderQRData(uri, format, qrOptions);
 
-        let data: string;
-
-        switch (format) {
-            case 'png': {
-                data = await QRCode.toDataURL(uri, mergedOptions);
-                break;
-            }
-
-            case 'svg': {
-                data = await QRCode.toString(uri, {
-                    ...mergedOptions,
-                    type: 'svg',
-                });
-                break;
-            }
-
-            case 'utf8': {
-                data = await QRCode.toString(uri, {
-                    ...mergedOptions,
-                    type: 'utf8',
-                });
-                break;
-            }
-
-            case 'terminal': {
-                data = await QRCode.toString(uri, {
-                    ...mergedOptions,
-                    type: 'terminal',
-                });
-                break;
-            }
-
-            default: {
-                throw new JPYCPaymentError(
-                    `サポートされていない出力フォーマットです: ${format}`,
-                    'QR_GENERATION_FAILED',
-                    { format }
-                );
-            }
-        }
-
-        return {
-            data,
-            format,
-            uri,
-        };
+        return { data, format, uri };
     } catch (error) {
-        if (error instanceof JPYCPaymentError) {
-            throw error;
-        }
-        throw new JPYCPaymentError('QRコードの生成に失敗しました', 'QR_GENERATION_FAILED', {
-            error,
-        });
+        throw toQRGenerationError(error, 'QRコードの生成に失敗しました');
     }
 }

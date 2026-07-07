@@ -1,5 +1,5 @@
 import { isValidAddressFormat } from './checksum.js';
-import { ADDRESS_REGEX, CHAIN_CONFIGS, MAX_SAFE_AMOUNT } from './constants.js';
+import { AMOUNT_FORMAT_REGEX, CHAIN_CONFIGS, MAX_SAFE_AMOUNT } from './constants.js';
 import type { PaymentURIOptions, ValidationResult, Warning } from './types.js';
 
 /**
@@ -35,6 +35,12 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
             errors.push('金額は有限の数値である必要があります');
         } else if (amountNum > MAX_SAFE_AMOUNT) {
             errors.push(`金額が大きすぎます: ${amountNum}。最大値は ${MAX_SAFE_AMOUNT} JPYです`);
+        } else if (
+            typeof options.amount === 'string' &&
+            !AMOUNT_FORMAT_REGEX.test(options.amount)
+        ) {
+            // parseFloatは"100abc"のような形式も途中まで解釈してしまうため、形式を厳密に検証
+            errors.push(`無効な金額形式です: ${options.amount}`);
         }
 
         // 小額の警告
@@ -55,13 +61,11 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
     }
 
     // networkの検証
-    if (options.network !== undefined) {
-        if (!CHAIN_CONFIGS[options.network]) {
-            errors.push(
-                `サポートされていないネットワークです: ${options.network}。` +
-                    `サポートされているネットワーク: ${Object.keys(CHAIN_CONFIGS).join(', ')}`
-            );
-        }
+    if (options.network !== undefined && !CHAIN_CONFIGS[options.network]) {
+        errors.push(
+            `サポートされていないネットワークです: ${options.network}。` +
+                `サポートされているネットワーク: ${Object.keys(CHAIN_CONFIGS).join(', ')}`
+        );
     }
 
     // jpycContractAddressの検証
@@ -82,21 +86,22 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
 
     // decimalsの検証
     if (options.decimals !== undefined) {
-        if (!Number.isInteger(options.decimals) || options.decimals < 0 || options.decimals > 18) {
+        const isValidDecimals =
+            Number.isInteger(options.decimals) && options.decimals >= 0 && options.decimals <= 18;
+
+        if (!isValidDecimals) {
             errors.push(`decimalsは0から18の整数である必要があります: ${options.decimals}`);
+        } else if (options.decimals !== 18) {
+            // 標準の18以外は警告
+            warnings.push({
+                code: 'CUSTOM_DECIMALS',
+                message: `非標準のdecimalsが指定されています: ${options.decimals}。コントラクトと一致することを確認してください`,
+            });
         }
 
         // decimalsはカスタムコントラクトアドレス指定時のみ有効
         if (!options.jpycContractAddress) {
             errors.push('decimalsはjpycContractAddressと併用する場合のみ指定できます');
-        }
-
-        // 標準の18以外は警告
-        if (options.decimals !== 18) {
-            warnings.push({
-                code: 'CUSTOM_DECIMALS',
-                message: `非標準のdecimalsが指定されています: ${options.decimals}。コントラクトと一致することを確認してください`,
-            });
         }
     }
 
@@ -108,12 +113,12 @@ export function validateGenerateOptions(options: PaymentURIOptions): ValidationR
 }
 
 /**
- * Ethereumアドレスの検証（エイリアス関数）
+ * Ethereumアドレスの検証（isValidAddressFormatのエイリアス）
  * @param address - 検証するアドレス
  * @returns アドレスが有効かどうか
  */
 export function isValidAddress(address: string): boolean {
-    return ADDRESS_REGEX.test(address);
+    return isValidAddressFormat(address);
 }
 
 /**
@@ -122,11 +127,9 @@ export function isValidAddress(address: string): boolean {
  * @returns 金額が有効かどうか
  */
 export function isValidAmount(amount: number | string): boolean {
+    if (typeof amount === 'string' && !AMOUNT_FORMAT_REGEX.test(amount)) {
+        return false;
+    }
     const amountNum = typeof amount === 'string' ? Number.parseFloat(amount) : amount;
-    return (
-        !Number.isNaN(amountNum) &&
-        Number.isFinite(amountNum) &&
-        amountNum > 0 &&
-        amountNum <= MAX_SAFE_AMOUNT
-    );
+    return Number.isFinite(amountNum) && amountNum > 0 && amountNum <= MAX_SAFE_AMOUNT;
 }

@@ -67,6 +67,17 @@ describe('Validator', () => {
             expect(result.valid).toBe(false);
         });
 
+        it('数字以外の文字を含む金額文字列でエラーを返す', () => {
+            const options: PaymentURIOptions = {
+                merchantAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
+                amount: '100abc',
+            };
+
+            const result = validateGenerateOptions(options);
+            expect(result.valid).toBe(false);
+            expect(result.errors.some((e) => e.includes('無効な金額形式'))).toBe(true);
+        });
+
         it('小額で警告を返す', () => {
             const options: PaymentURIOptions = {
                 merchantAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
@@ -170,6 +181,8 @@ describe('Validator', () => {
             expect(isValidAmount(-1)).toBe(false);
             expect(isValidAmount(Number.POSITIVE_INFINITY)).toBe(false);
             expect(isValidAmount('abc')).toBe(false);
+            expect(isValidAmount('100abc')).toBe(false);
+            expect(isValidAmount('1.2.3')).toBe(false);
         });
     });
 });
