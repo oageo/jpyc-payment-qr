@@ -62,6 +62,7 @@ console.log(result.chainId); // => 1
 - `ethereum` - Ethereum Mainnet (Chain ID: 1)
 - `polygon` - Polygon (Chain ID: 137) **[デフォルト]**
 - `avalanche` - Avalanche C-Chain (Chain ID: 43114)
+- `kaia` - Kaia Mainnet (Chain ID: 8217)
 
 ### 小数を含む金額
 
