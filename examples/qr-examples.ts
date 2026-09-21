@@ -129,7 +129,7 @@ async function decimalAmount() {
 
 // 異なるネットワーク
 async function differentNetworks() {
-    const networks = ['ethereum', 'polygon', 'avalanche'] as const;
+    const networks = ['ethereum', 'polygon', 'avalanche', 'kaia'] as const;
 
     for (const network of networks) {
         const result = await generatePaymentQR({

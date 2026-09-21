@@ -91,7 +91,7 @@ describe('QR Generator', () => {
         });
 
         it('異なるネットワークで生成できる', async () => {
-            const networks = ['ethereum', 'polygon', 'avalanche'] as const;
+            const networks = ['ethereum', 'polygon', 'avalanche', 'kaia'] as const;
 
             for (const network of networks) {
                 const result = await generatePaymentQRWithFormat(

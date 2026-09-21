@@ -51,6 +51,20 @@ describe('URI Generator', () => {
             expect(result.network).toBe('avalanche');
         });
 
+        it('Kaiaネットワークを指定できる', () => {
+            const options: PaymentURIOptions = {
+                merchantAddress: '0x1234567890123456789012345678901234567890',
+                amount: 100,
+                network: 'kaia',
+            };
+
+            const result = generatePaymentURI(options);
+
+            expect(result.uri).toContain('@8217/transfer');
+            expect(result.chainId).toBe(8217);
+            expect(result.network).toBe('kaia');
+        });
+
         it('文字列の金額を処理できる', () => {
             const options: PaymentURIOptions = {
                 merchantAddress: '0x1234567890123456789012345678901234567890',
