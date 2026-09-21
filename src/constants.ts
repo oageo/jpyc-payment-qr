@@ -33,6 +33,12 @@ export const CHAIN_CONFIGS: Record<SupportedNetwork, ChainConfig> = {
         jpycAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
         explorerUrl: 'https://snowtrace.io',
     },
+    kaia: {
+        chainId: 8217,
+        name: 'Kaia Mainnet',
+        jpycAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
+        explorerUrl: 'https://kaiascan.io',
+    },
 };
 
 /**

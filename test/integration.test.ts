@@ -48,7 +48,7 @@ describe('Integration', () => {
     });
 
     it('異なるネットワークでの完全な流れ', () => {
-        const networks = ['ethereum', 'polygon', 'avalanche'] as const;
+        const networks = ['ethereum', 'polygon', 'avalanche', 'kaia'] as const;
 
         for (const network of networks) {
             const options: PaymentURIOptions = {

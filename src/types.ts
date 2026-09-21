@@ -1,7 +1,7 @@
 /**
  * JPYCがサポートするブロックチェーンネットワーク
  */
-export type SupportedNetwork = 'ethereum' | 'polygon' | 'avalanche';
+export type SupportedNetwork = 'ethereum' | 'polygon' | 'avalanche' | 'kaia';
 
 /**
  * 各ネットワークのチェーン設定
