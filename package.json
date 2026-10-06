@@ -1,6 +1,6 @@
 {
   "name": "jpyc-payment-qr",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "QR code generator for JPYC (Japanese Yen Coin) payments with EIP-681 support",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,6 +33,7 @@
     "eip-681",
     "ethereum",
     "polygon",
+    "kaia",
     "blockchain"
   ],
   "author": "Osumi Akari",

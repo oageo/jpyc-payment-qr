@@ -11,35 +11,48 @@ export const JPYC_DECIMALS = 18;
 export const DEFAULT_NETWORK: SupportedNetwork = 'polygon';
 
 /**
+ * チェーン設定を末端のオブジェクトまで凍結する
+ */
+function deepFreeze(
+    configs: Record<SupportedNetwork, ChainConfig>
+): Readonly<Record<SupportedNetwork, Readonly<ChainConfig>>> {
+    for (const config of Object.values(configs)) {
+        Object.freeze(config);
+    }
+    return Object.freeze(configs);
+}
+
+/**
  * 各ネットワークのチェーン設定
  * 参照元: https://github.com/jcam1/JPYCpay
+ * 実行時に書き換えられて別のコントラクトアドレスのURIが生成されないよう、末端まで凍結する
  */
-export const CHAIN_CONFIGS: Record<SupportedNetwork, ChainConfig> = {
+export const CHAIN_CONFIGS: Readonly<Record<SupportedNetwork, Readonly<ChainConfig>>> = deepFreeze({
     ethereum: {
         chainId: 1,
         name: 'Ethereum Mainnet',
-        jpycAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
+        jpycAddress: '0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29',
         explorerUrl: 'https://etherscan.io',
     },
     polygon: {
         chainId: 137,
         name: 'Polygon',
-        jpycAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
+        jpycAddress: '0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29',
         explorerUrl: 'https://polygonscan.com',
     },
     avalanche: {
         chainId: 43114,
         name: 'Avalanche C-Chain',
-        jpycAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
+        jpycAddress: '0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29',
         explorerUrl: 'https://snowtrace.io',
     },
     kaia: {
         chainId: 8217,
         name: 'Kaia Mainnet',
-        jpycAddress: '0xe7c3d8c9a439fede00d2600032d5db0be71c3c29',
+        jpycAddress: '0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29',
         explorerUrl: 'https://kaiascan.io',
     },
-};
+});
 
 /**
  * EIP-681スキームプレフィックス
