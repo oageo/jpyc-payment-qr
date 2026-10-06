@@ -10,6 +10,7 @@ export type {
     PaymentURIOptions,
     PaymentURIResult,
     ValidationResult,
+    ValidationIssue,
     Warning,
     QRCodeOptions,
     QROutputFormat,
@@ -36,14 +37,26 @@ export {
     toChecksumAddress,
     isValidChecksumAddress,
     isValidAddressFormat,
+    normalizeAddress,
+    isZeroAddress,
 } from './checksum.js';
+
+// 金額処理関数のエクスポート
+export { normalizeAmount, parseAmountToWei } from './amount.js';
 
 // バリデーション関数のエクスポート
 export { validateGenerateOptions, isValidAddress, isValidAmount } from './validator.js';
+export type { IsValidAmountOptions } from './validator.js';
 
 // エンコーダー関数のエクスポート
 export { jpyToWei, weiToJpy, encodeEIP681, decodeEIP681 } from './encoder.js';
-export type { DecodedEIP681 } from './encoder.js';
+export type {
+    DecodedEIP681,
+    EIP681DecodeErrorKind,
+    EIP681DecodeErrorDetails,
+    EIP681EncodeField,
+    EIP681EncodeErrorDetails,
+} from './encoder.js';
 
 // URI生成関数のエクスポート
 export { generatePaymentURI } from './uri-generator.js';

@@ -1,5 +1,8 @@
 import QRCode from 'qrcode';
-import { JPYCPaymentError } from './errors.js';
+import { isZeroAddress } from './checksum.js';
+import { CHAIN_CONFIGS } from './constants.js';
+import { decodeEIP681, encodeEIP681 } from './encoder.js';
+import { JPYCPaymentError, displayValue, previewValue } from './errors.js';
 import type { PaymentURIOptions, QRCodeOptions, QRCodeResult, QROutputFormat } from './types.js';
 import { generatePaymentURI } from './uri-generator.js';
 
@@ -17,14 +20,57 @@ const DEFAULT_QR_OPTIONS = {
 };
 
 /**
+ * QRコードの幅の上限（ピクセル）。巨大な画像の生成でメモリとCPUを使い切るのを防ぐ
+ */
+const MAX_QR_WIDTH = 4096;
+
+/**
+ * QRコードのマージンの上限（モジュール数）
+ */
+const MAX_QR_MARGIN = 100;
+
+/**
+ * QRコードのサイズ指定（widthやmargin）を検証する
+ * 文字列やNumberオブジェクトはqrcode内部で数値に変換され上限を迂回できるため、数値型のみ受け付ける
+ * @returns 検証済みの値（未指定の場合はデフォルト値）
+ * @throws {JPYCPaymentError} 数値型でない、または範囲外の場合（QR_GENERATION_FAILED）
+ */
+function checkQRSize(
+    name: 'width' | 'margin',
+    value: unknown,
+    min: number,
+    max: number,
+    defaultValue: number
+): number {
+    if (value === undefined) {
+        return defaultValue;
+    }
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+        throw new JPYCPaymentError(
+            `QRコードの${name}は${min}以上${max}以下の整数で指定してください: ${previewValue(value)}`,
+            'QR_GENERATION_FAILED',
+            { [name]: previewValue(value) }
+        );
+    }
+    return value;
+}
+
+/**
  * QRコードオプションをデフォルト値とマージ
+ * @throws {JPYCPaymentError} widthやmarginが数値型でない、または範囲外の場合（QR_GENERATION_FAILED）
  */
 function mergeQROptions(qrOptions?: QRCodeOptions) {
     return {
         errorCorrectionLevel:
             qrOptions?.errorCorrectionLevel ?? DEFAULT_QR_OPTIONS.errorCorrectionLevel,
-        width: qrOptions?.width ?? DEFAULT_QR_OPTIONS.width,
-        margin: qrOptions?.margin ?? DEFAULT_QR_OPTIONS.margin,
+        width: checkQRSize('width', qrOptions?.width, 1, MAX_QR_WIDTH, DEFAULT_QR_OPTIONS.width),
+        margin: checkQRSize(
+            'margin',
+            qrOptions?.margin,
+            0,
+            MAX_QR_MARGIN,
+            DEFAULT_QR_OPTIONS.margin
+        ),
         color: {
             dark: qrOptions?.color?.dark ?? DEFAULT_QR_OPTIONS.color.dark,
             light: qrOptions?.color?.light ?? DEFAULT_QR_OPTIONS.color.light,
@@ -56,9 +102,9 @@ async function renderQRData(
 
         default:
             throw new JPYCPaymentError(
-                `サポートされていない出力フォーマットです: ${format}`,
+                `サポートされていない出力フォーマットです: ${displayValue(format)}`,
                 'QR_GENERATION_FAILED',
-                { format }
+                { format: previewValue(format) }
             );
     }
 }
@@ -135,10 +181,16 @@ export async function generatePaymentQRBuffer(
 
 /**
  * URIからQRコードを生成
+ *
+ * URIは decodeEIP681 と同じ基準で検証し、正規化したURI（アドレスはチェックサム形式、
+ * 金額は10進整数、'pay-' や大文字のスキームは除去・小文字化）をQRコードにする。
+ * 受け付けない形式（transfer 以外の関数、value パラメータ付きなど）はQRコードを生成せずエラーにする
  * @param uri - EIP-681フォーマットのURI
  * @param format - 出力フォーマット
  * @param qrOptions - QRコード生成オプション
- * @returns QRコード生成結果
+ * @returns QRコード生成結果（uri は正規化後のURI）
+ * @throws {JPYCPaymentError} URIが不正な場合（ENCODING_FAILED。details.kind で原因を判別できる）、
+ * QRコードの生成に失敗した場合（QR_GENERATION_FAILED）
  */
 export async function generateQRFromURI(
     uri: string,
@@ -146,9 +198,46 @@ export async function generateQRFromURI(
     qrOptions?: QRCodeOptions
 ): Promise<QRCodeResult> {
     try {
-        const data = await renderQRData(uri, format, qrOptions);
+        // QRコードの中身が検証済みの支払い内容と一致するよう、正規化したURIを使う
+        const decoded = decodeEIP681(uri);
 
-        return { data, format, uri };
+        // generatePaymentURIと同じく、ゼロアドレスのコントラクトや、送金した資金を取り戻せなくなる受取アドレスは拒否する
+        if (isZeroAddress(decoded.contractAddress)) {
+            throw new JPYCPaymentError(
+                'ゼロアドレス（0x000…0）がコントラクトアドレスになっているURIはQRコードにできません',
+                'INVALID_ADDRESS',
+                { contractAddress: decoded.contractAddress }
+            );
+        }
+        if (isZeroAddress(decoded.recipientAddress)) {
+            throw new JPYCPaymentError(
+                'ゼロアドレス（0x000…0）が受取アドレスになっているURIはQRコードにできません（送金した資金を取り戻せなくなります）',
+                'INVALID_ADDRESS',
+                { recipientAddress: decoded.recipientAddress }
+            );
+        }
+        // decodeEIP681 の戻り値はチェックサム形式に正規化済みのため、文字列比較でよい
+        const tokenContracts = [
+            decoded.contractAddress,
+            ...Object.values(CHAIN_CONFIGS).map((config) => config.jpycAddress),
+        ];
+        if (tokenContracts.includes(decoded.recipientAddress)) {
+            throw new JPYCPaymentError(
+                `トークンのコントラクトアドレスが受取アドレスになっているURIはQRコードにできません。受取アドレスとコントラクトアドレスを取り違えていないか確認してください（送金した資金を取り戻せなくなります）: ${decoded.recipientAddress}`,
+                'INVALID_ADDRESS',
+                { recipientAddress: decoded.recipientAddress }
+            );
+        }
+
+        const normalizedUri = encodeEIP681(
+            decoded.contractAddress,
+            decoded.recipientAddress,
+            decoded.amount,
+            decoded.chainId
+        );
+        const data = await renderQRData(normalizedUri, format, qrOptions);
+
+        return { data, format, uri: normalizedUri };
     } catch (error) {
         throw toQRGenerationError(error, 'QRコードの生成に失敗しました');
     }
