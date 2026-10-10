@@ -54,6 +54,7 @@ export type {
     DecodedEIP681,
     EIP681DecodeErrorKind,
     EIP681DecodeErrorDetails,
+    EIP681UnsafeRecipientIssue,
     EIP681EncodeField,
     EIP681EncodeErrorDetails,
 } from './encoder.js';

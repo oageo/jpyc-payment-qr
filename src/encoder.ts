@@ -1,6 +1,6 @@
 import { assertValidDecimals, parseAmountToWei } from './amount.js';
-import { normalizeAddress } from './checksum.js';
-import { EIP681_SCHEME, JPYC_DECIMALS, TRANSFER_FUNCTION } from './constants.js';
+import { isZeroAddress, normalizeAddress } from './checksum.js';
+import { CHAIN_CONFIGS, EIP681_SCHEME, JPYC_DECIMALS, TRANSFER_FUNCTION } from './constants.js';
 import {
     JPYCPaymentError,
     type JPYCPaymentErrorCode,
@@ -272,7 +272,19 @@ export type EIP681DecodeErrorKind =
     /** クエリパラメータの重複（name） */
     | 'DUPLICATE_PARAM'
     /** 金額が不正（name: 'uint256', value。空・形式不正・整数でない・0・範囲外） */
-    | 'INVALID_AMOUNT';
+    | 'INVALID_AMOUNT'
+    /**
+     * 送金すると資金を取り戻せなくなる受取アドレス
+     * （name: 'address', value, recipientIssue: 'ZERO_ADDRESS' | 'TOKEN_CONTRACT'）
+     */
+    | 'UNSAFE_RECIPIENT';
+
+/**
+ * UNSAFE_RECIPIENT の詳しい原因
+ * - ZERO_ADDRESS: 受取アドレスがゼロアドレス（0x000…0）
+ * - TOKEN_CONTRACT: 受取アドレスがトークンのコントラクトアドレス（URIのコントラクト、またはJPYCのコントラクト）
+ */
+export type EIP681UnsafeRecipientIssue = 'ZERO_ADDRESS' | 'TOKEN_CONTRACT';
 
 /**
  * decodeEIP681 が投げる JPYCPaymentError（code: 'ENCODING_FAILED'）の details
@@ -286,6 +298,8 @@ export interface EIP681DecodeErrorDetails {
     name?: string;
     /** 原因となった値（切り詰め済み） */
     value?: string;
+    /** kind が UNSAFE_RECIPIENT の場合の詳しい原因 */
+    recipientIssue?: EIP681UnsafeRecipientIssue;
     /** 入力URI（切り詰め済み。文字列以外の場合は型名等） */
     uri: string;
 }
@@ -335,16 +349,22 @@ class EIP681DecodeError extends Error {
     /** 原因となったパラメータ名（Error#name と衝突しないよう別名にしている） */
     readonly param: string | undefined;
     readonly value: string | undefined;
+    readonly recipientIssue: EIP681UnsafeRecipientIssue | undefined;
 
     constructor(
         kind: EIP681DecodeErrorKind,
         reason: string,
-        { name, value }: { name?: string; value?: string } = {}
+        {
+            name,
+            value,
+            recipientIssue,
+        }: { name?: string; value?: string; recipientIssue?: EIP681UnsafeRecipientIssue } = {}
     ) {
         super(reason);
         this.kind = kind;
         this.param = name;
         this.value = value;
+        this.recipientIssue = recipientIssue;
     }
 }
 
@@ -826,19 +846,68 @@ function parseEIP681(uri: unknown): DecodedEIP681 {
  * `ethereum:[pay-]<contract>@<chain_id>/transfer?address=<recipient>&uint256=<amount>`
  * - 使える文字は '#' 以外の印字可能なASCII文字のみ（空白・制御文字・全角文字等は拒否。パーセントエンコードには非対応）
  * - スキームは大文字小文字を区別しない（戻り値は 'ethereum' に正規化）
+ * - 'pay-' プレフィックスは小文字のみ（EIP-681の文法上は 'PAY-' も有効だが、厳格化のため受け付けない）
  * - target_address は 0x + 40桁の16進アドレスのみ（ENS名には対応していない）
  * - `@chain_id` は必須（EIP-681では省略可能だが、誤ったチェーンでの送金を防ぐため）
  * - 関数名は transfer のみ、クエリは address と uint256 のみ（両方必須、重複不可。value 等は拒否）
  * - uint256 は '1000', '1e18', '1.5e18' 等の表記を受け付け、10進整数文字列に正規化する
+ *   （整数部は必須。EIP-681の文法上は '.5e1' のように整数部を省略できるが、厳格化のため受け付けない）
  * - アドレスはEIP-55チェックサム形式に正規化する（大文字小文字混在時はチェックサムを検証）
+ * - 受取アドレスがゼロアドレス、またはトークンのコントラクトアドレス（URIのコントラクト、
+ *   またはJPYCのコントラクト）の場合は、送金すると資金を取り戻せなくなるため拒否する（UNSAFE_RECIPIENT）
  * @param uri - EIP-681フォーマットのURI
  * @returns パース結果
  * @throws {JPYCPaymentError} デコードに失敗した場合（code は ENCODING_FAILED。メッセージに理由を含む）。
  * details は {@link EIP681DecodeErrorDetails} で、details.kind により原因を判別できる
  */
 export function decodeEIP681(uri: string): DecodedEIP681 {
+    return decodeEIP681Internal(uri, { checkRecipient: true });
+}
+
+/**
+ * 受取アドレスが、送金すると資金を取り戻せなくなるアドレスでないことを確認する
+ * （generatePaymentURI・generateQRFromURI と同じ判定。アドレスはチェックサム形式に正規化済み）
+ * @throws {EIP681DecodeError} ゼロアドレス、またはトークンのコントラクトアドレスの場合（UNSAFE_RECIPIENT）
+ */
+function assertSafeRecipient(decoded: DecodedEIP681): void {
+    const recipient = decoded.recipientAddress;
+    if (isZeroAddress(recipient)) {
+        throw new EIP681DecodeError(
+            'UNSAFE_RECIPIENT',
+            '受取アドレス（address）がゼロアドレス（0x000…0）です。送金した資金を取り戻せなくなります',
+            { name: 'address', value: recipient, recipientIssue: 'ZERO_ADDRESS' }
+        );
+    }
+    const tokenContracts = [
+        decoded.contractAddress,
+        ...Object.values(CHAIN_CONFIGS).map((config) => config.jpycAddress),
+    ];
+    if (tokenContracts.includes(recipient)) {
+        throw new EIP681DecodeError(
+            'UNSAFE_RECIPIENT',
+            `受取アドレス（address）がトークンのコントラクトアドレスです。受取アドレスとコントラクトアドレスを取り違えていないか確認してください（送金した資金を取り戻せなくなります）: ${recipient}`,
+            { name: 'address', value: recipient, recipientIssue: 'TOKEN_CONTRACT' }
+        );
+    }
+}
+
+/**
+ * decodeEIP681 の本体
+ *
+ * generateQRFromURI は受取アドレスの安全性を自前で検査し、従来どおり INVALID_ADDRESS を投げるため、
+ * checkRecipient: false で呼び出す（ライブラリ内部用。index.ts からは公開しない）
+ * @internal
+ */
+export function decodeEIP681Internal(
+    uri: string,
+    { checkRecipient }: { checkRecipient: boolean }
+): DecodedEIP681 {
     try {
-        return parseEIP681(uri);
+        const decoded = parseEIP681(uri);
+        if (checkRecipient) {
+            assertSafeRecipient(decoded);
+        }
+        return decoded;
     } catch (error) {
         const decodeError =
             error instanceof EIP681DecodeError
@@ -854,6 +923,9 @@ export function decodeEIP681(uri: string): DecodedEIP681 {
         }
         if (decodeError.value !== undefined) {
             details.value = decodeError.value;
+        }
+        if (decodeError.recipientIssue !== undefined) {
+            details.recipientIssue = decodeError.recipientIssue;
         }
         throw new JPYCPaymentError(
             `EIP-681 URIのデコードに失敗しました: ${decodeError.message}`,

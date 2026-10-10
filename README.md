@@ -167,13 +167,16 @@ console.log(decoded.amount); // => '1000000000000000000000'
 
 `decodeEIP681` は、このライブラリが生成する形式のERC20 `transfer` URIだけを受け付け、それ以外はエラー（`ENCODING_FAILED`、メッセージに理由が入る）になります。
 
-- スキームは `ethereum:` のみ（大文字小文字は区別しない）。`pay-` プレフィックスは取り除く
+- スキームは `ethereum:` のみ（大文字小文字は区別しない）。`pay-` プレフィックスは取り除く（小文字の `pay-` のみ。大文字の `PAY-` は受け付けない）
 - コントラクトアドレスと受取アドレスは `0x` + 40桁の16進数のみ（ENS名は非対応）。大文字小文字が混在する場合はチェックサムを検証し、戻り値はチェックサム形式になる
 - `@chain_id` は必須（先頭ゼロ不可）
 - 関数名は `transfer` のみ。クエリは `address` と `uint256` のみで、どちらも必須・重複不可（`value` や `gas` などは拒否）
-- `uint256` は1以上の整数。`1e18` のような表記は10進整数（`'1000000000000000000'`）に正規化する
+- `uint256` は1以上の整数。`1e18` のような表記は10進整数（`'1000000000000000000'`）に正規化する。整数部は必須（`.5e1` のように整数部を省いた表記は受け付けない。`0.5e1` と書く）
 - 空白・制御文字・`#`・全角文字などのASCII以外の文字を含むURI、`?` が2つ以上あるURI、2048文字を超えるURIは拒否する
 - パーセントエンコード（`%26` など）には対応していない（デコードせずに拒否する）
+- 受取アドレスがゼロアドレス、またはトークンのコントラクトアドレス（URIのコントラクト、またはJPYCのコントラクト）のURIは、送金すると資金を取り戻せなくなるため拒否する（`UNSAFE_RECIPIENT`）
+
+`PAY-` と `.5e1` はEIP-681の文法上は有効な表記ですが、解釈の揺れによる取り違えを防ぐため、このライブラリでは受け付けません。
 
 失敗の原因は `details.kind` で判別できます（`EIP681DecodeErrorDetails` 型）。
 
@@ -201,7 +204,10 @@ try {
 | `UNSUPPORTED_FUNCTION` | 関数が `transfer` 以外（関数がない場合は `name: ''`） |
 | `UNSUPPORTED_PARAM` | `address`・`uint256` 以外のクエリパラメータ（`value` など。パラメータ名は小文字のみ） |
 | `DUPLICATE_PARAM` | クエリパラメータが重複している |
-| `INVALID_AMOUNT` | 金額が空・形式不正（先頭ゼロ・符号・パーセントエンコードを含む）・整数でない・0・uint256の範囲外 |
+| `INVALID_AMOUNT` | 金額が空・形式不正（先頭ゼロ・符号・パーセントエンコード・整数部の省略を含む）・整数でない・0・uint256の範囲外 |
+| `UNSAFE_RECIPIENT` | 受取アドレスが送金すると資金を取り戻せなくなるアドレス（`name: 'address'`、`recipientIssue` が `'ZERO_ADDRESS'`（ゼロアドレス）または `'TOKEN_CONTRACT'`（トークンのコントラクトアドレス）） |
+
+`reason` はどの `kind` でも人間向けの説明文です。`UNSAFE_RECIPIENT` の詳しい原因をプログラムで判別する場合は `recipientIssue`（`EIP681UnsafeRecipientIssue` 型）を使ってください。
 
 ### JPY ⇔ Wei 変換
 
@@ -327,8 +333,10 @@ console.log(terminalQR.data); // ターミナルで表示可能なQRコード
 **サポートされているフォーマット:**
 - `png` - PNG Data URL形式（ブラウザの`<img>`タグで直接利用可能）
 - `svg` - SVG文字列形式
-- `utf8` - UTF-8テキスト形式（ASCII art）
-- `terminal` - ターミナル表示用
+- `utf8` - UTF-8テキスト形式（ASCII art。Node.js専用）
+- `terminal` - ターミナル表示用（Node.js専用）
+
+ブラウザでは、内部で使っている qrcode ライブラリのブラウザ版が文字列出力をSVGにしか対応していないため、`utf8` や `terminal` を指定してもエラーにならず、SVGが返ります。ブラウザでは `png` か `svg` を使ってください。
 
 ### カスタムQRコードオプション
 
@@ -355,6 +363,8 @@ const qr = await generatePaymentQR(
 `width`（1〜4096）と `margin`（0〜100）は整数（数値型）で指定してください。範囲外や整数以外（文字列・小数など）の場合は、巨大な画像の生成でメモリを使い切らないよう `QR_GENERATION_FAILED` になります。
 
 ### バッファ形式（ファイル保存用）
+
+`generatePaymentQRBuffer` は Node.js 専用です。ブラウザでは、内部で使っている qrcode ライブラリのブラウザ版にバッファ出力がないため `QR_GENERATION_FAILED` になります。ブラウザでは `generatePaymentQR`（PNG Data URL）を使ってください。
 
 ```typescript
 import { generatePaymentQRBuffer } from 'jpyc-payment-qr';
@@ -445,7 +455,7 @@ JPYC支払い用のQRコードを指定フォーマットで生成します。
 
 ### `generatePaymentQRBuffer(options, qrOptions?)`
 
-JPYC支払い用のQRコードをUint8Array形式で生成します（PNG）。
+JPYC支払い用のQRコードをUint8Array形式で生成します（PNG。Node.js専用）。
 
 **パラメータ:**
 - `options` (PaymentURIOptions, 必須) - 支払いURIオプション
@@ -458,7 +468,7 @@ JPYC支払い用のQRコードをUint8Array形式で生成します（PNG）。
 既存のURIからQRコードを生成します。URIは `decodeEIP681` と同じ基準で検証し、正規化したURIをQRコードにします（戻り値の `uri` も正規化後のURI）。
 
 **パラメータ:**
-- `uri` (string, 必須) - EIP-681フォーマットのURI（不正な場合は `ENCODING_FAILED`）
+- `uri` (string, 必須) - EIP-681フォーマットのURI（不正な場合は `ENCODING_FAILED`。受取アドレスがゼロアドレスやトークンのコントラクトアドレス、またはコントラクトアドレスがゼロアドレスの場合は `INVALID_ADDRESS`）
 - `format` (QROutputFormat, オプション) - 出力フォーマット（デフォルト: 'png'）
 - `qrOptions` (QRCodeOptions, オプション) - QRコード生成オプション
 
@@ -492,7 +502,7 @@ JPYC支払い用のQRコードをUint8Array形式で生成します（PNG）。
 
 型:
 - オプション・戻り値: `PaymentURIOptions`, `PaymentURIResult`, `SupportedNetwork`, `ChainConfig`, `QRCodeOptions`, `QROutputFormat`, `QRCodeResult`, `DecodedEIP681`, `IsValidAmountOptions`
-- 検証・エラー: `ValidationResult`, `ValidationIssue`, `Warning`, `JPYCPaymentErrorCode`, `EIP681DecodeErrorKind`, `EIP681DecodeErrorDetails`, `EIP681EncodeField`, `EIP681EncodeErrorDetails`
+- 検証・エラー: `ValidationResult`, `ValidationIssue`, `Warning`, `JPYCPaymentErrorCode`, `EIP681DecodeErrorKind`, `EIP681DecodeErrorDetails`, `EIP681UnsafeRecipientIssue`, `EIP681EncodeField`, `EIP681EncodeErrorDetails`
 
 ## エラーハンドリング
 

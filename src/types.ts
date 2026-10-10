@@ -128,6 +128,7 @@ export interface QRCodeOptions {
 
 /**
  * QRコード出力フォーマット
+ * 'utf8' と 'terminal' はNode.js専用（ブラウザではqrcodeライブラリの制約によりSVGが返る）
  */
 export type QROutputFormat = 'png' | 'svg' | 'utf8' | 'terminal';
 

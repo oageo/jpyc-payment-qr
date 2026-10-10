@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { isZeroAddress } from './checksum.js';
 import { CHAIN_CONFIGS } from './constants.js';
-import { decodeEIP681, encodeEIP681 } from './encoder.js';
+import { decodeEIP681Internal, encodeEIP681 } from './encoder.js';
 import { JPYCPaymentError, displayValue, previewValue } from './errors.js';
 import type { PaymentURIOptions, QRCodeOptions, QRCodeResult, QROutputFormat } from './types.js';
 import { generatePaymentURI } from './uri-generator.js';
@@ -156,6 +156,9 @@ export async function generatePaymentQRWithFormat(
 
 /**
  * JPYC支払い用のQRコードをUint8Array形式で生成（PNG）
+ *
+ * Node.js専用。ブラウザでは qrcode ライブラリのブラウザ版にバッファ出力がないため QR_GENERATION_FAILED になる
+ * （ブラウザでは generatePaymentQR の PNG Data URL を使う）
  * @param options - 支払いURIオプション
  * @param qrOptions - QRコード生成オプション
  * @returns QRコード生成結果（Uint8Array）
@@ -198,8 +201,10 @@ export async function generateQRFromURI(
     qrOptions?: QRCodeOptions
 ): Promise<QRCodeResult> {
     try {
-        // QRコードの中身が検証済みの支払い内容と一致するよう、正規化したURIを使う
-        const decoded = decodeEIP681(uri);
+        // QRコードの中身が検証済みの支払い内容と一致するよう、正規化したURIを使う。
+        // 受取アドレスの安全性は下で検査し INVALID_ADDRESS を投げる（decodeEIP681 の UNSAFE_RECIPIENT ではなく）ため、
+        // decodeEIP681 の受取アドレス検査は行わない
+        const decoded = decodeEIP681Internal(uri, { checkRecipient: false });
 
         // generatePaymentURIと同じく、ゼロアドレスのコントラクトや、送金した資金を取り戻せなくなる受取アドレスは拒否する
         if (isZeroAddress(decoded.contractAddress)) {

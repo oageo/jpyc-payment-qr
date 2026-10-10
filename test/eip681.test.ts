@@ -66,7 +66,7 @@ function expectDecodeFailure(
     expect(details.uri.length).toBeLessThanOrEqual(300);
     expect(Object.keys(details).sort()).toEqual(expect.arrayContaining(['kind', 'reason', 'uri']));
     for (const key of Object.keys(details)) {
-        expect(['kind', 'reason', 'name', 'value', 'uri']).toContain(key);
+        expect(['kind', 'reason', 'name', 'value', 'recipientIssue', 'uri']).toContain(key);
     }
     return details;
 }
@@ -281,11 +281,11 @@ describe('EIP-681', () => {
             const decoded = decodeEIP681(
                 buildURI({
                     target: CONTRACT_LOWER,
-                    query: `?address=${CONTRACT_LOWER}&uint256=1`,
+                    query: '?address=0xabcdefabcdefabcdefabcdefabcdefabcdefabcd&uint256=1',
                 })
             );
             expect(decoded.contractAddress).toBe(CONTRACT);
-            expect(decoded.recipientAddress).toBe(CONTRACT);
+            expect(decoded.recipientAddress).toBe('0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD');
         });
 
         it('パラメータの順序が逆でもデコードできる', () => {
@@ -656,6 +656,46 @@ describe('EIP-681', () => {
                 { kind: 'UNSUPPORTED_PARAM', name: key },
                 `クエリパラメータ ${key} には対応していません（${why}）`
             );
+        });
+
+        // 送金すると資金を取り戻せなくなる受取アドレス（generatePaymentURI・generateQRFromURI と同じ判定）
+        it.each([
+            ['ゼロアドレス', CONTRACT, `0x${'0'.repeat(40)}`, 'ZERO_ADDRESS'],
+            ['URIのコントラクト自身', CONTRACT, CONTRACT, 'TOKEN_CONTRACT'],
+            ['URIのコントラクト自身（小文字）', CONTRACT, CONTRACT_LOWER, 'TOKEN_CONTRACT'],
+            [
+                '別トークンのURIでのJPYCのコントラクト',
+                '0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD',
+                CONTRACT,
+                'TOKEN_CONTRACT',
+            ],
+        ])(
+            '受取アドレスが%sのURIを UNSAFE_RECIPIENT で拒否する',
+            (_label, target, to, recipientIssue) => {
+                const details = expectDecodeFailure(
+                    buildURI({ target, query: `?address=${to}&uint256=1` }),
+                    { kind: 'UNSAFE_RECIPIENT', name: 'address', recipientIssue },
+                    '送金した資金を取り戻せなくなります'
+                );
+                // reason は他の kind と同じく人間向けの説明文のまま
+                expect(details.reason).toContain('受取アドレス');
+            }
+        );
+
+        it.each([
+            // EIP-681の文法上は有効だが、厳格化のため受け付けない
+            [
+                '大文字の PAY- プレフィックス',
+                buildURI({ target: `PAY-${CONTRACT}` }),
+                'INVALID_ADDRESS',
+            ],
+            [
+                '整数部を省いた指数表記（.5e1）',
+                buildURI({ query: `?address=${RECIPIENT}&uint256=.5e1` }),
+                'INVALID_AMOUNT',
+            ],
+        ])('%s は受け付けない', (_label, uri, kind) => {
+            expectDecodeFailure(uri, { kind: kind as EIP681DecodeErrorDetails['kind'] });
         });
 
         it('必須パラメータの欠落を MISSING_PARAM で拒否する', () => {
